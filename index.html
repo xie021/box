@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>紙箱內部估價系統</title>
+<style>
+body { font-family: Arial, sans-serif; padding:20px; max-width:900px; margin:auto; }
+input, select { padding:6px; margin:4px 0; width:100%; }
+button { padding:10px; margin-top:10px; width:100%; font-size:16px; }
+table { border-collapse: collapse; width:100%; margin-top:15px; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+.result { background:#f7f7f7; padding:15px; margin-top:15px; }
+.highlight { background:#dff0d8; }
+</style>
+</head>
+
+<body>
+
+<h2>📦 紙箱內部估價系統（最終版）</h2>
+
+<label>長 (cm)</label>
+<input id="L" type="number">
+
+<label>寬 (cm)</label>
+<input id="W" type="number">
+
+<label>高 (cm)</label>
+<input id="H" type="number">
+
+<label>數量 (箱)</label>
+<input id="Q" type="number">
+
+<label>材質</label>
+<select id="material">
+  <option value="6+4">6+4（三層）</option>
+  <option value="6M4">6M4（三層）</option>
+  <option value="7M5">7M5（三層）</option>
+  <option value="6++M4">6++M4（五層）</option>
+  <option value="7++S6">7++S6（五層）</option>
+  <option value="9++S7">9++S7（五層）</option>
+</select>
+
+<button onclick="calc()">計算</button>
+
+<div id="output"></div>
+
+<script>
+const paperWidths = [297,314,330,347,363,380,396,413,429,446,479,495,528,561,594,627,660,693,726];
+
+const materials = {
+  "6+4":  { layer:3, normal:1.15, discount:0.79 },
+  "6M4":  { layer:3, normal:1.23, discount:0.87 },
+  "7M5":  { layer:3, normal:1.38, discount:1.02 },
+  "6++M4":{ layer:5, normal:1.80, discount:1.38 },
+  "7++S6":{ layer:5, normal:2.09, discount:1.67 },
+  "9++S7":{ layer:5, normal:2.38, discount:1.96 }
+};
+
+function cmToFen(cm){
+  return Math.ceil(cm / 0.303);
+}
+
+function calc(){
+  const L = cmToFen(+document.getElementById("L").value);
+  const W = cmToFen(+document.getElementById("W").value);
+  const H = cmToFen(+document.getElementById("H").value);
+  const Q = +document.getElementById("Q").value;
+  const key = document.getElementById("material").value;
+  const mat = materials[key];
+
+  const paperLen = (L + W) * 2 + 10;
+  const needWidth = W + H + (mat.layer === 3 ? 1 : 2);
+
+  let rows = [];
+  let best = null;
+
+  for(let p=1;p<=4;p++){
+    const need = needWidth * p + 6;
+    const use = paperWidths.find(w => w >= need);
+    if(!use) continue;
+    const waste = use - need;
+    const obj = { p, need, use, waste };
+    rows.push(obj);
+    if(!best || waste < best.waste) best = obj;
+  }
+
+  const boxAreaFen = paperLen * needWidth;
+  const totalAreaChi = (boxAreaFen * Q) / 10000;
+  const price = totalAreaChi > 1000 ? mat.discount : mat.normal;
+
+  const paperCostOne =
+    (best.use/100) * (paperLen/100) * price / best.p;
+
+  let html = `
+  <div class="result">
+  <b>台分尺寸</b><br>
+  長 ${L}｜寬 ${W}｜高 ${H}<br><br>
+
+  <b>展開紙長</b>：${paperLen} 台分<br>
+  <b>單箱紙寬需求</b>：${needWidth} 台分<br><br>
+
+  <b>拚寬試算</b>
+  <table>
+    <tr><th>拚數</th><th>含損耗需求</th><th>定紙寬</th><th>浪費</th></tr>`;
+
+  rows.forEach(r=>{
+    html += `<tr class="${r===best?'highlight':''}">
+      <td>${r.p}</td><td>${r.need}</td><td>${r.use}</td><td>${r.waste}</td>
+    </tr>`;
+  });
+
+  html += `</table><br>
+
+  <b>最佳解</b>：${best.p} 拚，用 ${best.use} 台分定紙<br><br>
+
+  <b>總用量</b>：${totalAreaChi.toFixed(1)} 平方台尺<br>
+  <b>使用價格</b>：${price} 元 / 平方台尺<br><br>
+
+  <b>單箱紙板成本</b>：<span style="font-size:18px">${paperCostOne.toFixed(2)}</span> 元
+  </div>`;
+
+  document.getElementById("output").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
